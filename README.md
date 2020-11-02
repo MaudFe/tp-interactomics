@@ -36,19 +36,19 @@ Par exemple, les 100 premières interactions protéine-protéine humaines dispon
 
 Numero de champ | Signification Biologique|
  --- | --- 
-1 | 
-2 |
-3 |
-4 |
-5 |
-6 |
+1 | Unique identifier for interactor A, represented as databaseName:ac, where databaseName is the name of the corresponding database as defined in the PSI-MI controlled vocabulary, and ac is the unique primary identifier of the molecule in the database. Identifiers from multiple databases can be separated by "|". It is recommended that proteins be identified by stable identifiers such as their UniProtKB or RefSeq accession number.
+2 | Unique identifier for interactor B
+3 | Alternative identifier for interactor A, for example the official gene symbol as defined by a recognised nomenclature committee. Representation as databaseName:identifier. Multiple identifiers separated by "|".
+4 | Alternative identifier for interactor B.
+5 | Aliases for A, separated by "|". Representation as databaseName:identifier. Multiple identifiers separated by "|".
+6 | Aliases for B.
 
 ##### Utiliser le PMID de la publication pour récuperer les lignes MITAB des interactions rapportées dans l'étude.
 Une librairie pratique pour manipuler des requêtes HTTP est [requests](https://requests.readthedocs.io/en/master/), eg:
 
 ```python
 import requests
-url = "https://mmsb.cnrs.fr/equipe/mobi/"
+url = "http://www.ebi.ac.uk/Tools/webservices/psicquic/intact/webservices/current/search/query/pubid:17446270"
 
 try:
     httpReq = requests.get(url, proxies=None)
@@ -60,19 +60,43 @@ ans = httpReq.text
 ##### Quelles techniques experimentales mesurent les interactions rapportées dans cette publication?
 
 ```
+https://www.pnas.org/content/104/18/7606
 
+Aller voir la dedans. 
 ```
 
 #### Extraction des deux sous-jeux d'interactions suivants:
 - Interactions EBV-EBV
 - Interactions EBV-Humaine
 
+```python
+
+psqData = []
+for l in ans.split("\n"):
+    if l:
+        l = l.split("\t")
+        if l[0].startswith("uniprotkb:") and l[1].startswith("uniprotkb:"):
+            psqData.append( [ l[0].replace("uniprotkb:", ""),  l[1].replace("uniprotkb:", "") ]  + l[2:] )
+```
 
 **Ne retenir que les lignes MITAB dans lesquelles chaque interactant possède un identifiant UNIPROT**
 
 ##### Proposer les expressions régulières et les champs auxquels les appliquer pour opérer les filtres suivants:
 - Extraire les lignes MITAB impliquant uniquement des protéines d'EBV, quel est leur nombre ?
 - Extraire les lignes MITAB impliquant des protéines humaines et des protéines d'EBV, quel est leur nombre ?
+
+```python
+
+psqData_EBV_EBV = []
+psqData_EBV_Human = []
+
+for x in psqData:
+    if "virus" in x[9] and "virus" in x[10]:
+        psqData_EBV_EBV.append(x)
+    else:
+        psqData_EBV_Human.append(x)
+print(f"{len(psqData_EBV_Human)}  // {len(psqData_EBV_EBV)}")
+```
 
 Jeux d'interactions | [N°champ 1] Expression(s) régulière(s) |  [N°champ 2] Expression(s) régulière(s) | Nombre d'interactions | Nombres d'interactants 
 ---                 |      ---              |           ---           |          ---          |         --- 
@@ -82,6 +106,7 @@ Jeux d'interactions | [N°champ 1] Expression(s) régulière(s) |  [N°champ 2] 
 ##### Combien de protéines humaines et virales sont respectivement dans les jeux d'interactions EBV-Human et EBV-EBV ?
 
 ```
+171 EBV Human // 59 EBV EBV
 
 ```
 
@@ -145,7 +170,7 @@ def proteinDict(uniprotID, root):
                 e = entry.find(f"{ns}protein/{ns}recommendedName/{ns}fullName")
                 if not e is None:
                     data["name"] = e.text
-                e = "OUPSS##!!!"
+                e = entry.find(f"{ns}gene/{ns}name")
                 if not e is None:
                     data["geneName"] = e.text
 
